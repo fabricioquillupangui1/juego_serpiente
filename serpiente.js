@@ -5,19 +5,20 @@ const ctx = canvas.getContext("2d");
 // Constante para el tamaño de cada celda de la cuadrícula
 const TAMANIO_CELDA = 25;
 
-// Arreglo que representa el cuerpo de la serpiente
+// Variables de configuración y estado del juego
 let serpiente = [
-    { x: 3, y: 3 }, // Cabeza
-    { x: 2, y: 3 }, // Cuerpo
-    { x: 1, y: 3 }  // Cuerpo
+    { x: 3, y: 3 },
+    { x: 2, y: 3 },
+    { x: 1, y: 3 }
 ];
 
-// Variables globales para el juego
 let direccionActual = "derecha";
+let proximaDireccion = "derecha"; // Evita errores de giro rápido
 let intervaloSerpiente = null;
 let puntaje = 0;
+let velocidad = 250; // Velocidad inicial en milisegundos (Parte 4)
+let juegoTerminado = false;
 
-// Objeto para la comida
 let comida = {
     x: 5,
     y: 5
@@ -34,7 +35,6 @@ function limpiarCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// Función para dibujar el tablero (cuadrícula)
 function dibujarTablero() {
     ctx.strokeStyle = "#1e293b"; 
     ctx.lineWidth = 1;
@@ -54,16 +54,15 @@ function dibujarTablero() {
     }
 }
 
-// Función para pintar una celda individual
 function pintarParte(lineax, lineay, esCabeza = false, esComida = false) {
     const xReal = lineax * TAMANIO_CELDA;
     const yReal = lineay * TAMANIO_CELDA;
 
     if (esComida) {
-        ctx.fillStyle = "#38bdf8"; // Celeste para la comida
+        ctx.fillStyle = "#38bdf8"; 
         ctx.strokeStyle = "#0284c7";
     } else {
-        ctx.fillStyle = esCabeza ? "#facc15" : "#ef4444"; // Amarillo cabeza, Rojo cuerpo
+        ctx.fillStyle = esCabeza ? "#facc15" : "#ef4444"; 
         ctx.strokeStyle = "#b91c1c";
     }
 
@@ -71,7 +70,6 @@ function pintarParte(lineax, lineay, esCabeza = false, esComida = false) {
     ctx.strokeRect(xReal, yReal, TAMANIO_CELDA, TAMANIO_CELDA);
 }
 
-// Función para recorrer y pintar toda la serpiente
 function pintarSerpiente() {
     for (let i = 0; i < serpiente.length; i++) {
         const parte = serpiente[i];
@@ -80,7 +78,6 @@ function pintarSerpiente() {
     }
 }
 
-// Función para pintar la comida
 function pintarComida() {
     pintarParte(comida.x, comida.y, false, true);
 }
@@ -93,42 +90,39 @@ function dibujarTodo() {
 }
 
 // =========================
-// FUNCIONES DE MOVIMIENTO
+// MOVIMIENTO Y LÓGICA
 // =========================
 
 function moverDerecha() {
-    const cabezaActual = serpiente[0];
-    const nuevaCabeza = { x: cabezaActual.x + 1, y: cabezaActual.y };
-    serpiente.unshift(nuevaCabeza);
+    const cabeza = serpiente[0];
+    serpiente.unshift({ x: cabeza.x + 1, y: cabeza.y });
 }
 
 function moverIzquierda() {
-    const cabezaActual = serpiente[0];
-    const nuevaCabeza = { x: cabezaActual.x - 1, y: cabezaActual.y };
-    serpiente.unshift(nuevaCabeza);
+    const cabeza = serpiente[0];
+    serpiente.unshift({ x: cabeza.x - 1, y: cabeza.y });
 }
 
 function moverArriba() {
-    const cabezaActual = serpiente[0];
-    const nuevaCabeza = { x: cabezaActual.x, y: cabezaActual.y - 1 };
-    serpiente.unshift(nuevaCabeza);
+    const cabeza = serpiente[0];
+    serpiente.unshift({ x: cabeza.x, y: cabeza.y - 1 });
 }
 
 function moverAbajo() {
-    const cabezaActual = serpiente[0];
-    const nuevaCabeza = { x: cabezaActual.x, y: cabezaActual.y + 1 };
-    serpiente.unshift(nuevaCabeza);
+    const cabeza = serpiente[0];
+    serpiente.unshift({ x: cabeza.x, y: cabeza.y + 1 });
 }
 
-// =========================
-// CONTROL DE DIRECCIÓN Y BUCLE
-// =========================
-
+// Control de dirección con validación para evitar giro sobre sí misma
 function cambiarDireccion(dir) {
-    direccionActual = dir;
+    if (juegoTerminado) return;
+
+    if (dir === "arriba" && direccionActual !== "abajo") proximaDireccion = "arriba";
+    if (dir === "abajo" && direccionActual !== "arriba") proximaDireccion = "abajo";
+    if (dir === "izquierda" && direccionActual !== "derecha") proximaDireccion = "izquierda";
+    if (dir === "derecha" && direccionActual !== "izquierda") proximaDireccion = "derecha";
 }
 
-// Función que genera una nueva posición aleatoria para la comida
 function generarComida() {
     const maxColumnas = canvas.width / TAMANIO_CELDA;
     const maxFilas = canvas.height / TAMANIO_CELDA;
@@ -137,64 +131,96 @@ function generarComida() {
     comida.y = Math.floor(Math.random() * maxFilas);
 }
 
-// Detectar si la cabeza coincide con la comida
 function atrapaComida() {
     const cabeza = serpiente[0];
     return cabeza.x === comida.x && cabeza.y === comida.y;
 }
 
-// Movimiento automático que se ejecuta en cada intervalo de tiempo
+// Verificación de colisión con los bordes (Game Over)[cite: 35]
+function validarColisionBordes() {
+    const cabeza = serpiente[0];
+    const maxColumnas = canvas.width / TAMANIO_CELDA;
+    const maxFilas = canvas.height / TAMANIO_CELDA;
+
+    if (cabeza.x < 0 || cabeza.x >= maxColumnas || cabeza.y < 0 || cabeza.y >= maxFilas) {
+        return true; // Chocó con el borde
+    }
+    return false;
+}
+
 function moverSerpiente() {
-    // 1. Mover según la dirección actual
-    if (direccionActual === "derecha") {
-        moverDerecha();
-    } else if (direccionActual === "izquierda") {
-        moverIzquierda();
-    } else if (direccionActual === "arriba") {
-        moverArriba();
-    } else if (direccionActual === "abajo") {
-        moverAbajo();
+    direccionActual = proximaDireccion;
+
+    if (direccionActual === "derecha") moverDerecha();
+    else if (direccionActual === "izquierda") moverIzquierda();
+    else if (direccionActual === "arriba") moverArriba();
+    else if (direccionActual === "abajo") moverAbajo();
+
+    // Validar si choca contra los bordes (Game Over)
+    if (validarColisionBordes()) {
+        finalizarJuego();
+        return;
     }
 
-    // 2. Validar si atrapa la comida
     if (atrapaComida()) {
         puntaje += 10;
         document.getElementById("puntaje").textContent = puntaje;
         generarComida();
-        // Si come, NO hacemos pop() para permitir que crezca
+        
+        // Mejora opcional: Incrementar velocidad ligeramente al comer
+        if (velocidad > 100) {
+            velocidad -= 5;
+            reiniciarIntervalo();
+        }
     } else {
-        // Si no come, eliminamos la cola para mantener el tamaño
         serpiente.pop();
     }
 
-    // 3. Redibujar todo el escenario
     dibujarTodo();
 }
 
+function reiniciarIntervalo() {
+    clearInterval(intervaloSerpiente);
+    intervaloSerpiente = setInterval(moverSerpiente, velocidad);
+}
+
 function iniciarJuego() {
-    if (!intervaloSerpiente) {
+    if (!intervaloSerpiente && !juegoTerminado) {
         document.getElementById("estado").textContent = "Jugando";
-        document.getElementById("mensaje").textContent = "¡El juego ha comenzado!";
-        intervaloSerpiente = setInterval(moverSerpiente, 300); // Velocidad del juego (milisegundos)
+        document.getElementById("mensaje").textContent = "¡Partida en curso!";
+        intervaloSerpiente = setInterval(moverSerpiente, velocidad);
     }
 }
 
 function pausarJuego() {
+    if (juegoTerminado) return;
     clearInterval(intervaloSerpiente);
     intervaloSerpiente = null;
     document.getElementById("estado").textContent = "Pausado";
     document.getElementById("mensaje").textContent = "Juego pausado.";
 }
 
+function finalizarJuego() {
+    clearInterval(intervaloSerpiente);
+    intervaloSerpiente = null;
+    juegoTerminado = true;
+    document.getElementById("estado").textContent = "Game Over";
+    document.getElementById("mensaje").textContent = "💥 ¡Te chocaste! Presiona Reiniciar.";
+}
+
 function reiniciarJuego() {
-    pausarJuego();
+    clearInterval(intervaloSerpiente);
+    intervaloSerpiente = null;
+    juegoTerminado = false;
     serpiente = [
         { x: 3, y: 3 },
         { x: 2, y: 3 },
         { x: 1, y: 3 }
     ];
     direccionActual = "derecha";
+    proximaDireccion = "derecha";
     puntaje = 0;
+    velocidad = 250;
     document.getElementById("puntaje").textContent = puntaje;
     document.getElementById("estado").textContent = "Listo";
     document.getElementById("mensaje").textContent = "Presiona iniciar para comenzar.";
