@@ -5,6 +5,13 @@ const ctx = canvas.getContext("2d");
 // Constante para el tamaño de cada celda de la cuadrícula
 const TAMANIO_CELDA = 25;
 
+// Arreglo que representa el cuerpo de la serpiente (coordenadas de la cuadrícula)
+const serpiente = [
+    { x: 3, y: 3 }, // Cabeza (diferenciada por color)
+    { x: 2, y: 3 }, // Cuerpo
+    { x: 1, y: 3 }  // Cuerpo
+];
+
 // Primera pintura del juego al cargar la página
 dibujarTodo();
 
@@ -38,12 +45,38 @@ function dibujarTablero() {
     }
 }
 
-function dibujarTodo() {
-    limpiarCanvas();
-    dibujarTablero(); // Invocamos el tablero dentro del flujo de redibujado
+// Función para pintar una celda individual basada en coordenadas de la cuadrícula
+function pintarParte(lineax, lineay, esCabeza = false) {
+    // Calculamos la posición real multiplicando por el tamaño de la celda
+    const xReal = lineax * TAMANIO_CELDA;
+    const yReal = lineay * TAMANIO_CELDA;
+
+    // Color de relleno (Amarillo para la cabeza, Rojo para el cuerpo)
+    ctx.fillStyle = esCabeza ? "#facc15" : "#ef4444";
+    ctx.fillRect(xReal, yReal, TAMANIO_CELDA, TAMANIO_CELDA);
+
+    // Color y trazo del borde del bloque
+    ctx.strokeStyle = "#b91c1c";
+    ctx.strokeRect(xReal, yReal, TAMANIO_CELDA, TAMANIO_CELDA);
 }
 
-// Funciones temporales para evitar errores en los botones del HTML antes de llegar a esas partes
+// Función para recorrer y pintar toda la serpiente
+function pintarSerpiente() {
+    for (let i = 0; i < serpiente.length; i++) {
+        const parte = serpiente[i];
+        // Si el índice es 0, es la cabeza
+        const esCabeza = (i === 0);
+        pintarParte(parte.x, parte.y, esCabeza);
+    }
+}
+
+function dibujarTodo() {
+    limpiarCanvas();
+    dibujarTablero(); 
+    pintarSerpiente(); // Dibujamos la serpiente en el canvas
+}
+
+// Funciones de control de botones
 function cambiarDireccion(dir) {
     console.log("Dirección cambiada a: " + dir);
 }
